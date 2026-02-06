@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Nova - Amazon Voice Shopping Assistant powered by Gemini Realtime">
+    <title>Nova - Amazon Voice Shopping Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M7 18C4.79 18 3 16.21 3 14C3 11.79 4.79 10 7 10H17C19.21 10 21 11.79 21 14C21 16.21 19.21 18 17 18"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path d="M12 2L12 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <circle cx="12" cy="14" r="3" fill="currentColor" />
+                        <path d="M4 21C7 19 10 18 12 18C14 18 17 19 20 21" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>Nova</h1>
+                    <span>Amazon Voice Shopping Assistant</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="connection-status" id="connection-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Disconnected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Status Card -->
+            <div class="status-card" id="status-card">
+                <div class="status-indicator" id="status-indicator">
+                    <div class="pulse-ring"></div>
+                    <div class="status-icon" id="status-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M7 18C4.79 18 3 16.21 3 14C3 11.79 4.79 10 7 10H17C19.21 10 21 11.79 21 14C21 16.21 19.21 18 17 18"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="12" cy="14" r="3" fill="currentColor" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="status-text">
+                    <h2 id="status-title">Click to Start Shopping</h2>
+                    <p id="status-subtitle">Voice-powered Amazon shopping with Nova</p>
+                </div>
+                <div class="waveform" id="waveform">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+
+            <!-- Control Button -->
+            <div class="control-area">
+                <button class="connect-button" id="connect-button">
+                    <div class="button-content">
+                        <svg viewBox="0 0 24 24" fill="none" id="connect-icon">
+                            <path
+                                d="M7 18C4.79 18 3 16.21 3 14C3 11.79 4.79 10 7 10H17C19.21 10 21 11.79 21 14C21 16.21 19.21 18 17 18"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="12" cy="14" r="3" fill="currentColor" />
+                        </svg>
+                        <span id="connect-text">Start Shopping</span>
+                    </div>
+                    <div class="button-ripple"></div>
+                </button>
+                <p class="control-hint" id="control-hint">Click to connect and start shopping with your voice</p>
+            </div>
+
+            <!-- Audio Visualizer -->
+            <div class="audio-visualizer" id="audio-visualizer">
+                <canvas id="audio-canvas"></canvas>
+            </div>
+
+            <!-- Transcript Area -->
+            <div class="transcript-container">
+                <h3>🛒 Shopping Session</h3>
+                <div class="transcript-messages" id="transcript-messages">
+                    <div class="transcript-item system">
+                        <p>Welcome! Click the button below to start shopping with Nova.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>Try saying...</h3>
+                <div class="action-chips">
+                    <button class="chip" data-prompt="Search for wireless earbuds">
+                        🎧 Search for earbuds
+                    </button>
+                    <button class="chip" data-prompt="Add the first one to my cart">
+                        🛒 Add to cart
+                    </button>
+                    <button class="chip" data-prompt="What's in my cart?">
+                        📦 View my cart
+                    </button>
+                    <button class="chip" data-prompt="Search for laptop stands">
+                        💻 Find laptop stands
+                    </button>
+                    <button class="chip" data-prompt="Show me Prime products only">
+                        ⚡ Filter by Prime
+                    </button>
+                    <button class="chip" data-prompt="Tell me about this product">
+                        📋 Product details
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- LiveKit SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
