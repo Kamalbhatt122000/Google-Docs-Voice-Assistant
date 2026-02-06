@@ -9,6 +9,7 @@ const { Room, RoomEvent, Track, ParticipantEvent } = LivekitClient;
 let room = null;
 let localAudioTrack = null;
 let isConnected = false;
+let isAgentConnected = false;
 let isSpeaking = false;
 
 // ==================== DOM Elements ====================
@@ -93,6 +94,7 @@ function updateStatus(status, message = '', subtitle = '') {
     const statusMessages = {
         disconnected: { title: 'Click to Connect', subtitle: 'Start a voice session with Aria' },
         connecting: { title: 'Connecting...', subtitle: 'Setting up secure connection' },
+        waiting: { title: 'Waiting for Agent...', subtitle: 'Agent is joining the room' },
         connected: { title: 'Connected', subtitle: 'Listening... Speak now!' },
         speaking: { title: 'Aria is Speaking', subtitle: 'Wait for response or interrupt' },
         listening: { title: 'Listening...', subtitle: 'Go ahead, I\'m listening!' },
@@ -113,6 +115,9 @@ function updateStatus(status, message = '', subtitle = '') {
     } else if (status === 'connecting') {
         statusDot.style.background = '#f59e0b';
         statusText.textContent = 'Connecting...';
+    } else if (status === 'waiting') {
+        statusDot.style.background = '#f59e0b';
+        statusText.textContent = 'Waiting for Agent...';
     } else {
         statusDot.style.background = '#ef4444';
         statusText.textContent = 'Disconnected';
@@ -154,12 +159,11 @@ async function connect() {
     updateConnectButton(false);
 
     try {
-        // Get token from server
+        // Get token from server (server generates unique room per session)
         const response = await fetch('/api/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                room: 'voice-assistant-room',
                 participant: 'user-' + Math.random().toString(36).substring(7)
             })
         });
@@ -195,9 +199,16 @@ async function connect() {
         }
 
         isConnected = true;
-        updateStatus('connected');
+        isAgentConnected = false;  // Will be set true when we receive agent's audio track
         updateConnectButton(true);
-        addTranscript('system', 'Connected! Start speaking to Aria.');
+        updateStatus('waiting');
+        addTranscript('system', 'Room joined. Waiting for agent to connect...');
+
+        // Log existing participants for debugging
+        console.log('📋 Remote participants in room:', room.remoteParticipants.size);
+        room.remoteParticipants.forEach((participant) => {
+            console.log('  - ', participant.identity);
+        });
 
     } catch (error) {
         console.error('❌ Connection failed:', error);
@@ -214,6 +225,7 @@ async function disconnect() {
 
     stopAudioVisualization();
     isConnected = false;
+    isAgentConnected = false;
     updateStatus('disconnected');
     updateConnectButton(false);
     addTranscript('system', 'Disconnected from voice session.');
@@ -233,36 +245,82 @@ function setupRoomEvents(room) {
 
     room.on(RoomEvent.ParticipantConnected, (participant) => {
         console.log('👤 Participant connected:', participant.identity);
-        if (participant.identity.includes('agent')) {
-            addTranscript('system', 'Aria has joined the conversation.');
+        // Don't set connected here - wait for audio track subscription
+        // This ensures we only show connected when we can actually hear them
+    });
+
+    room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        console.log('👤 Participant disconnected:', participant.identity);
+        // Check if this was our agent (any remote participant)
+        if (participant.identity !== room.localParticipant.identity) {
+            // Double-check no other remote participants exist
+            if (room.remoteParticipants.size === 0) {
+                isAgentConnected = false;
+                updateStatus('waiting', 'Agent Disconnected', 'Click End then Start to reconnect.');
+                addTranscript('system', 'Agent disconnected.');
+            }
         }
     });
 
     room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        console.log('🎵 Track subscribed:', track.kind);
+        console.log('🎵 Track subscribed:', track.kind, 'from:', participant.identity);
 
         if (track.kind === Track.Kind.Audio) {
             // Attach audio to play it
             const audioElement = track.attach();
-            audioElement.id = 'agent-audio';
+            audioElement.id = 'agent-audio-' + participant.identity;
             document.body.appendChild(audioElement);
+
+            // If we receive audio from someone else, agent is connected
+            if (participant.identity !== room.localParticipant.identity) {
+                console.log('✅ Agent audio track received - marking as connected');
+                isAgentConnected = true;
+                updateStatus('connected');
+                addTranscript('system', 'Agent connected! Start speaking now.');
+            }
         }
     });
 
-    room.on(RoomEvent.TrackUnsubscribed, (track) => {
+    room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        console.log('🔇 Track unsubscribed:', track.kind, 'from:', participant?.identity);
         track.detach().forEach(el => el.remove());
+
+        // If we lost audio from a remote participant, agent might have disconnected
+        if (track.kind === Track.Kind.Audio && participant &&
+            participant.identity !== room.localParticipant.identity) {
+            console.log('⚠️ Agent audio track lost - checking participants');
+
+            // Check if there are any other remote participants still connected
+            let hasRemoteParticipant = false;
+            room.remoteParticipants.forEach((p) => {
+                if (p.identity !== participant.identity) {
+                    hasRemoteParticipant = true;
+                }
+            });
+
+            if (!hasRemoteParticipant) {
+                isAgentConnected = false;
+                updateStatus('waiting', 'Agent Disconnected', 'Reconnect to continue');
+                addTranscript('system', 'Agent disconnected.');
+            }
+        }
     });
 
     room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-        const agentSpeaking = speakers.some(s => s.identity.includes('agent'));
-        const userSpeaking = speakers.some(s => !s.identity.includes('agent'));
+        // Only update speaking status if agent is actually connected
+        if (!isAgentConnected) {
+            return; // Don't change status if agent isn't connected
+        }
+
+        const agentSpeaking = speakers.some(s => s.identity !== room.localParticipant.identity);
+        const userSpeaking = speakers.some(s => s.identity === room.localParticipant.identity);
 
         if (agentSpeaking) {
             updateStatus('speaking');
             isSpeaking = true;
         } else if (userSpeaking) {
             updateStatus('listening');
-        } else if (isConnected) {
+        } else if (isConnected && isAgentConnected) {
             updateStatus('connected');
             isSpeaking = false;
         }

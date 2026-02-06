@@ -1,9 +1,9 @@
 """
 Web Server for Voice Assistant
-Handles token generation and explicit agent dispatch (with duplicate prevention)
+Handles token generation - agent dispatch is automatic via LiveKit Cloud
 """
 import os
-import asyncio
+import uuid
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from livekit import api
@@ -15,8 +15,11 @@ load_dotenv()
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
-# Room name
-ROOM_NAME = "voice-assistant-room"
+
+def generate_room_name() -> str:
+    """Generate a unique room name for each session"""
+    return f"voice-room-{uuid.uuid4().hex[:8]}"
+
 
 
 def generate_token(room_name: str, participant_name: str) -> str:
@@ -37,31 +40,9 @@ def generate_token(room_name: str, participant_name: str) -> str:
     return token.to_jwt()
 
 
-async def dispatch_agent_if_needed(room_name: str):
-    """Dispatch agent only if no agent is already in the room"""
-    async with api.livekit_api.LiveKitAPI(
-        url=config.LIVEKIT_URL,
-        api_key=config.LIVEKIT_API_KEY,
-        api_secret=config.LIVEKIT_API_SECRET,
-    ) as lk_api:
-        try:
-            # Check existing dispatches for this room
-            existing = await lk_api.agent_dispatch.list_dispatch(
-                api.ListAgentDispatchRequest(room=room_name)
-            )
-            
-            if existing.agent_dispatches:
-                print(f"📋 Agent already dispatched to room '{room_name}', skipping")
-                return
-            
-            # No existing dispatch - create one
-            dispatch = await lk_api.agent_dispatch.create_dispatch(
-                api.CreateAgentDispatchRequest(room=room_name)
-            )
-            print(f"🤖 Agent dispatch requested: {dispatch.id}")
-            
-        except Exception as e:
-            print(f"Agent dispatch note: {e}")
+# NOTE: We rely on LiveKit Cloud's automatic agent dispatch feature
+# When a participant joins a room, LiveKit Cloud automatically dispatches an agent
+# No explicit dispatch needed - this avoids double agents joining
 
 
 @app.route('/')
@@ -76,20 +57,21 @@ def get_token():
     data = request.json or {}
     participant_name = data.get('participant', f'user-{os.urandom(4).hex()}')
     
+    # Generate a unique room name for each session
+    room_name = generate_room_name()
+    
     try:
-        # Dispatch agent if not already dispatched
-        asyncio.run(dispatch_agent_if_needed(ROOM_NAME))
-        
         # Generate token for user
-        token = generate_token(ROOM_NAME, participant_name)
+        # Agent will be auto-dispatched by LiveKit Cloud when user joins
+        token = generate_token(room_name, participant_name)
         
-        print(f"🎫 Token generated for {participant_name}")
+        print(f"🎫 Token generated for {participant_name} in room {room_name}")
         
         return jsonify({
             'success': True,
             'token': token,
             'url': config.LIVEKIT_URL,
-            'room': ROOM_NAME,
+            'room': room_name,
             'participant': participant_name
         })
     except Exception as e:
@@ -106,7 +88,7 @@ def get_config():
     return jsonify({
         'livekit_url': config.LIVEKIT_URL,
         'assistant_name': config.ASSISTANT_NAME,
-        'room_name': ROOM_NAME
+        'room_name': 'dynamic'  # Room is generated per session
     })
 
 
@@ -122,7 +104,7 @@ if __name__ == '__main__':
 ║            🌐 Voice Assistant Web Server                     ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Open http://localhost:{config.FLASK_PORT} in your browser                  ║
-║  Room: {ROOM_NAME:<52} ║
+║  Rooms: Generated dynamically per session                    ║
 ║                                                              ║
 ║  Make sure the agent is running with:                        ║
 ║    python agent.py dev                                       ║
