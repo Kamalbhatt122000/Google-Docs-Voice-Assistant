@@ -53,6 +53,7 @@ async def entrypoint(ctx: JobContext):
                 voice="Puck",
                 temperature=0.7,
             ),
+
             # Cartesia TTS for concurrent speech via session.say()
             tts="cartesia/sonic-3:f786b574-daa5-4673-aa0c-cbe3e8534c02",
         )
@@ -75,10 +76,12 @@ async def entrypoint(ctx: JobContext):
         logger.info("Greeting learner...")
         await session.generate_reply(
             instructions=(
-                f"Greet the user as {config.ASSISTANT_NAME}, their Google Docs teaching assistant. "
-                f"Say: Hi! I'm DocBot. I can teach you how to use Google Docs, Sheets, and Slides. "
-                f"Just ask me 'How do I...' and I'll show you step by step! "
-                f"For example, try asking 'How do I create a new document?' or 'How do I make text bold?'"
+                f"Greet the user warmly and professionally as {config.ASSISTANT_NAME}, their dedicated Google Docs teaching assistant. "
+                f"Your greeting should be welcoming and enthusiastic, making them feel comfortable. "
+                f"Say something like: 'Hello and welcome! I'm {config.ASSISTANT_NAME}, your personal guide to mastering Google Docs, Sheets, and Slides. "
+                f"I'm delighted to help you learn at your own pace. Whether you're a beginner or looking to discover new features, I'm here to assist. "
+                f"Simply ask me any question starting with \"How do I...\" and I'll walk you through it step by step with a live demonstration! "
+                f"For example, you might ask: \"How do I create a new document?\" or \"How do I format text?\" — I'm ready whenever you are!'"
             )
         )
         logger.info("Greeting sent")

@@ -176,10 +176,19 @@ async function connect() {
 
         console.log('🎫 Got token, connecting to:', data.url);
 
-        // Create room
+        // Create room with optimized audio settings
         room = new Room({
             adaptiveStream: true,
             dynacast: true,
+            // Audio optimization for real-time voice
+            audioCaptureDefaults: {
+                autoGainControl: true,
+                echoCancellation: true,
+                noiseSuppression: true,
+            },
+            audioOutput: {
+                deviceId: 'default',
+            },
         });
 
         // Set up event handlers
@@ -266,10 +275,62 @@ function setupRoomEvents(room) {
         console.log('🎵 Track subscribed:', track.kind, 'from:', participant.identity);
 
         if (track.kind === Track.Kind.Audio) {
-            // Attach audio to play it
+            // Remove any existing audio element for this participant to prevent duplicates
+            const existingAudio = document.getElementById('agent-audio-' + participant.identity);
+            if (existingAudio) {
+                existingAudio.remove();
+            }
+
+            // Attach audio with optimized settings for smooth playback
             const audioElement = track.attach();
             audioElement.id = 'agent-audio-' + participant.identity;
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            audioElement.muted = false;
+
+            // Reduce latency by disabling audio buffering where possible
+            if (audioElement.mozPreservesPitch !== undefined) {
+                audioElement.mozPreservesPitch = false;
+            }
+            if (audioElement.preservesPitch !== undefined) {
+                audioElement.preservesPitch = false;
+            }
+
+            // Handle audio playback errors with auto-recovery
+            audioElement.onerror = (e) => {
+                console.error('🔊 Audio playback error:', e);
+                // Attempt to recover by reattaching
+                setTimeout(() => {
+                    if (track && !track.isMuted) {
+                        console.log('🔄 Attempting audio recovery...');
+                        audioElement.load();
+                        audioElement.play().catch(err => console.warn('Recovery play failed:', err));
+                    }
+                }, 100);
+            };
+
+            // Handle stalled audio (common cause of "stuck" audio)
+            audioElement.onstalled = () => {
+                console.warn('⚠️ Audio stalled, attempting recovery...');
+                audioElement.load();
+                audioElement.play().catch(err => console.warn('Stall recovery failed:', err));
+            };
+
+            // Handle waiting/buffering
+            audioElement.onwaiting = () => {
+                console.log('⏳ Audio buffering...');
+            };
+
+            audioElement.onplaying = () => {
+                console.log('▶️ Audio playing');
+            };
+
             document.body.appendChild(audioElement);
+
+            // Ensure playback starts
+            audioElement.play().catch(err => {
+                console.warn('Initial play failed (user interaction may be needed):', err);
+            });
 
             // If we receive audio from someone else, agent is connected
             if (participant.identity !== room.localParticipant.identity) {
