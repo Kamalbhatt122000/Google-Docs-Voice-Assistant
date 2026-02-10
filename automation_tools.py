@@ -59,6 +59,9 @@ async def browser_action(
     async with _action_lock:
         _action_in_progress = True
         try:
+            # Disable audio input so the realtime model doesn't react to TTS voice
+            context.session.input.set_audio_enabled(False)
+            
             print(f"Teaching task: {task}")
             browser = await get_browser()
             
@@ -71,12 +74,14 @@ async def browser_action(
             result = await browser.execute_task(task, speech_callback=speech_callback)
             
             if result["success"]:
-                return "demonstration complete"
+                return "Demonstration completed successfully. The steps have already been spoken to the user. DO NOT say anything else — just wait for the user's next question."
             else:
-                error_msg = f"I had some trouble demonstrating that. {result.get('error', 'Unknown error')}."
+                error_msg = f"I ran into a small issue while demonstrating that. {result.get('error', 'Unknown error')}. Please try asking again or ask me something else!"
                 context.session.say(error_msg, allow_interruptions=True)
-                return "error handled"
+                return "An error occurred and the user has already been informed via speech. DO NOT say anything else — just wait for the user's next question."
         finally:
+            # Re-enable audio input so the user can talk again
+            context.session.input.set_audio_enabled(True)
             _action_in_progress = False
 
 
