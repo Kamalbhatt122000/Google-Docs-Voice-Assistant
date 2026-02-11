@@ -281,53 +281,37 @@ function setupRoomEvents(room) {
                 existingAudio.remove();
             }
 
-            // Attach audio with optimized settings for smooth playback
+            // Attach audio with optimized settings for smooth WebRTC playback
             const audioElement = track.attach();
             audioElement.id = 'agent-audio-' + participant.identity;
             audioElement.autoplay = true;
             audioElement.playsInline = true;
             audioElement.muted = false;
 
-            // Reduce latency by disabling audio buffering where possible
-            if (audioElement.mozPreservesPitch !== undefined) {
-                audioElement.mozPreservesPitch = false;
-            }
-            if (audioElement.preservesPitch !== undefined) {
-                audioElement.preservesPitch = false;
-            }
+            // IMPORTANT: Do NOT call audioElement.load() on WebRTC streams
+            // It resets the stream and causes choppy/breaking audio
 
-            // Handle audio playback errors with auto-recovery
+            // Passive error logging only — no .load() recovery for live streams
             audioElement.onerror = (e) => {
                 console.error('🔊 Audio playback error:', e);
-                // Attempt to recover by reattaching
-                setTimeout(() => {
-                    if (track && !track.isMuted) {
-                        console.log('🔄 Attempting audio recovery...');
-                        audioElement.load();
-                        audioElement.play().catch(err => console.warn('Recovery play failed:', err));
-                    }
-                }, 100);
             };
 
-            // Handle stalled audio (common cause of "stuck" audio)
+            // Passive stall logging — WebRTC handles its own buffering
             audioElement.onstalled = () => {
-                console.warn('⚠️ Audio stalled, attempting recovery...');
-                audioElement.load();
-                audioElement.play().catch(err => console.warn('Stall recovery failed:', err));
+                console.warn('⚠️ Audio stream stalled (WebRTC will auto-recover)');
             };
 
-            // Handle waiting/buffering
             audioElement.onwaiting = () => {
                 console.log('⏳ Audio buffering...');
             };
 
             audioElement.onplaying = () => {
-                console.log('▶️ Audio playing');
+                console.log('▶️ Audio playing smoothly');
             };
 
             document.body.appendChild(audioElement);
 
-            // Ensure playback starts
+            // Ensure playback starts (needed for browsers that block autoplay)
             audioElement.play().catch(err => {
                 console.warn('Initial play failed (user interaction may be needed):', err);
             });
